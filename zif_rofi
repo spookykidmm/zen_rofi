@@ -1,0 +1,99 @@
+#!/bin/sh
+
+# Zen Installer Framework version 2.00
+#
+# Written by Jody James
+#
+#
+#Maintained by Josiah Ward(aka spookykidmm)
+#
+# This program is free software, provided under the GNU General Public License
+# as published by the Free Software Foundation. So feel free to copy, distribute,
+# or modify it as you wish.
+#
+# Special Recognition to Carl Duff, as some code was adapted from the Architect Installer
+# Special Recognition to 'angeltoast' as some code was adapted from the Feliz Installer
+#
+#
+
+#Pulling dependencies
+#sudo pacman -Syy
+#sudo pacman -S --noconfirm arch-install-scripts archiso pacman-contrib rofi gparted
+# Selecting the drive
+man_partition() { 
+	rofi -e "Following is a list of the available drives on your system: $(echo -e "\n\n$(lsblk -lno NAME,TYPE,SIZE,MOUNTPOINT | grep "disk")")"
+	lsblk -lno NAME,TYPE | grep 'disk' | awk '{print "/dev/" $1 " " $2}' | sort -u > devices.txt
+	sed -i 's/\<disk\>//g' devices.txt
+	devices=` awk '{print "FALSE " $0}' devices.txt `
+dev=$(cat devices.txt | rofi -dmenu -p  "Select the drive that you want to use for installation.")
+	echo $dev
+# Partitioning
+# Allow user to partition using gparted
+	rofi -e  "$(printf "Do you need to partition $dev?\nSelect Yes to open gparted and partition the disk or format partitions if needed.\nThe installer will not format the partitions after this,\nso if your partitions need to be formatted please select yes and use gparted to format them now.\nThe installer supports using a seperate /boot /home and /root partition, as well as a swap partition or file.")"
+	yesno
+	if 
+		[ "$q1" = "0" ]
+		then echo chickens
+		#gparted
+		elif [ "$q1" = "1" ]
+		then echo ducks
+	fi
+#Select Root Partition
+currentpart=root
+warning
+part_list=$(sudo fdisk -l | grep dev | grep -v Disk | awk '{print $1}')
+root_part=$(partselect)
+#Mounting Root Partition
+touch root_part.txt
+echo $root_part
+#echo $root_part >> root_part.txt
+#mount $root_part /mnt
+#Swap Partition?
+currentpart=swap
+rofi -e "If you would like to use a $currentpart partition, select yes in the next window"
+yesno
+if 
+	[ "$q1" = "0" ]
+	then 
+	warning
+	swap_part=$(partselect)
+	echo $swap_part
+	#mkswap $swap_part
+	#swapon $swap_part
+	elif [ "$q1" = "1" ]
+	then echo ducks
+fi
+printf "Would you like to create a 1GB swapfile on root?\nIf you've already mounted a swap partition or don't want swap, select \"No\".\nThis process could take some time, so please be patient." | rofi -e
+yesno
+if
+	[ "$q1" = "0" ]
+then
+    swapfile="yes"
+    echo $swapfile
+	#touch /mnt/swapfile
+	#dd if=/dev/zero of=/mnt/swapfile bs=1M count=1024
+	#chmod 600 /mnt/swapfile
+	#mkswap /mnt/swapfile
+	#swapon /mnt/swapfile) | zenity --progress --title="$title" --width=450 --pulsate --auto-close --no-cancel
+		fi
+}
+
+yesno() {
+s1=$(printf "Yes\nNo"  | rofi -dmenu) 
+	echo $s1
+q1=$(
+if 
+	[ "$s1" = "Yes" ]
+	then echo 0
+	elif [ "$s1" = "No" ] 
+	then echo 1
+fi
+)
+}
+warning() {
+	rofi -e "$(printf "In the following dialog, you will select your $currentpart partition.\nWarning, this will show all available partitions on all available drives.\nPlease choose with caution.")"
+}
+partselect() {
+printf $part_list | rofi -dmenu  -p "Select your $currentpart partition:"	
+}
+man_partition
